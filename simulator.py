@@ -22,6 +22,7 @@ class CRCSimulator:
         """
         self.crc_api_base_url = crc_api_base_url
         self.config = self.load_config(config_file)
+        self.sensor_types = {}  # Initialize sensor types dictionary
         print(f"CRCSimulator initialized. Target API URL: {self.crc_api_base_url if self.crc_api_base_url else 'Not set (printing only)'}")
 
     def load_config(self, config_file):
@@ -68,6 +69,50 @@ class CRCSimulator:
         except Exception as e:
             print(f"Error saving config file '{config_file}': {e}")
 
+    def add_sensor_type(self, name, fields):
+        """
+        Adds a new sensor type.
+
+        Args:
+            name (str): The name of the sensor type.
+            fields (list): A list of data fields for the sensor type.
+
+        Raises:
+            ValueError: If the sensor type already exists.
+        """
+        if name in self.sensor_types:
+            raise ValueError(f"Sensor type '{name}' already exists.")
+        self.sensor_types[name] = {"fields": fields}
+        print(f"Sensor type '{name}' added with fields: {fields}")
+
+    def remove_sensor_type(self, name):
+        """
+        Removes a sensor type.
+
+        Args:
+            name (str): The name of the sensor type.
+
+        Raises:
+            ValueError: If the sensor type does not exist.
+        """
+        if name not in self.sensor_types:
+            raise ValueError(f"Sensor type '{name}' not found.")
+        del self.sensor_types[name]
+        print(f"Sensor type '{name}' removed.")
+
+    def get_sensor_type(self, name):
+        """
+        Retrieves information about a sensor type.
+        """
+        if name not in self.sensor_types:
+            raise ValueError(f"Sensor type '{name}' not found.")
+        return self.sensor_types[name]
+
+    def list_sensor_types(self):
+        """
+        Lists all available sensor types.
+        """
+        return list(self.sensor_types.keys())
 
     def convert_to_crc_format(self, event_type, event_data):
         """Formats the event data into the expected CRC structure."""
@@ -289,6 +334,23 @@ class CRCSimulator:
             return
 
         if event_data:
+            # Check for thresholds and trigger alerts if necessary
+            thresholds = self.config.get(event_type, {}).get("thresholds", {})
+            for field, threshold_value in thresholds.items():
+                if field in event_data:
+                    value = event_data[field]
+                    if isinstance(threshold_value, dict):
+                        # Range-based threshold
+                        min_val = threshold_value.get("min")
+                        max_val = threshold_value.get("max")
+                        if (min_val is not None and value < min_val) or \
+                           (max_val is not None and value > max_val):
+                            print(f"!!! ALERT: {event_type} - '{field}' ({value}) breaches threshold: {threshold_value}")
+                    elif isinstance(threshold_value, list):
+                        # List-based threshold (e.g., specific values trigger alert)
+                        if value in threshold_value:
+                            print(f"!!! ALERT: {event_type} - '{field}' ({value}) breaches threshold: {threshold_value}")
+                    # Add more threshold types (e.g., regex, greater_than) as needed
             self.send_event(event_type, event_data)
 
 # --- Main Execution / User Interface ---
@@ -351,6 +413,9 @@ def run_automation(simulator):
     try:
         for i in range(num_events):
             event_to_simulate = specific_event_type if specific_event_type else random.choice(get_valid_event_types())
+            if not event_to_simulate:
+                print("No valid event types found. Please add a sensor type first.")
+                break
             print(f"\n[Automation Event {i+1}/{num_events}]")
             simulator.simulate_event(event_to_simulate, manual=False) # Automation always uses generated data#
             if delay > 0:
@@ -384,71 +449,169 @@ def change_config(simulator):
         valid_event_types = get_valid_event_types()
         for i, event_type in enumerate(valid_event_types):
             print(f"\n{i+1}. {event_type}:")
-            settings = simulator.config.get(event_type, {})
-            if settings:
-                for key, value in settings.items():
-                    print(f"  - {key}: {value}")
-            else:
-                print("  (No specific defaults)")
-        type_choice = input("\nEnter the number or name of the event type to modify (or 'back' to return): ").strip()
-        print(f"type_choice: {type_choice}")
-        print(f"valid_event_types: {valid_event_types}")
-        if type_choice.lower() == "back":
-            break#
+            self.display_event_type_settings(simulator.config, event_type)
 
-        selected_type = None
+        type_choice = input("\nEnter the number or name of the event type to modify (or 'back' to return): ").strip()
+        if type_choice.lower() == "back":
+            break
+
+        selected_type = self.get_selected_event_type(valid_event_types, type_choice)
+        if not selected_type:
+            continue
+
+        if "thresholds" in simulator.config.get(selected_type, {}):
+            if self.manage_thresholds(simulator, selected_type):
+                config_changed = True
+        else:
+            print(f"No thresholds found for {selected_type}.")
+            if self.manage_other_settings(simulator, selected_type):
+                config_changed = True
+
+    if config_changed:
+        self.save_configuration_changes(simulator)
+
+    def display_event_type_settings(self, config, event_type):
+        settings = config.get(event_type, {})
+        if not settings:
+            print("  (No specific defaults)")
+            return
+
+        for key, value in settings.items():
+            if key == "thresholds":
+                print("  - Thresholds:")
+                self.display_thresholds(value)
+            else:
+                print(f"  - {key}: {value}")
+
+    def display_thresholds(self, thresholds):
+        for field, threshold_value in thresholds.items():
+            print(f"    - {field}: {threshold_value}")
+
+    def get_selected_event_type(self, valid_event_types, type_choice):
         try:
             choice_index = int(type_choice) - 1
             if 0 <= choice_index < len(valid_event_types):
-                selected_type = valid_event_types[choice_index]
-            else:
-                print("Invalid number.")#
-                continue
+                return valid_event_types[choice_index]
         except ValueError:
             matched_type = next((etype for etype in valid_event_types if etype.lower() == type_choice.lower()), None)
             if matched_type:
-                selected_type = matched_type
-            else:
-                print("Invalid event type name.")
-                continue#
+                return matched_type
+        print("Invalid event type name.")
+        return None
 
-        if selected_type not in simulator.config:
-             print(f"No configurable defaults found for {selected_type}.")
-             continue#
+    def manage_thresholds(self, simulator, selected_type):
+        while True:
+            print(f"\nThresholds for {selected_type}:")
+            thresholds = simulator.config[selected_type]["thresholds"]
+            available_thresholds = list(thresholds.keys())
+            for i, threshold_name in enumerate(available_thresholds):
+                print(f"{i + 1}. {threshold_name}: {thresholds[threshold_name]}")
 
+            threshold_choice = input(
+                f"Enter the number or name of the threshold to modify (or 'back'): ").strip()
+            if threshold_choice.lower() == "back":
+                return False
+
+            selected_threshold = self.get_selected_threshold(available_thresholds, threshold_choice)
+            if not selected_threshold:
+                continue
+
+            if self.modify_threshold(simulator, selected_type, selected_threshold):
+                return True
+
+    def get_selected_threshold(self, available_thresholds, threshold_choice):
+        try:
+            choice_index = int(threshold_choice) - 1
+            if 0 <= choice_index < len(available_thresholds):
+                return available_thresholds[choice_index]
+        except ValueError:
+            matched_threshold = next(
+                (tname for tname in available_thresholds if tname.lower() == threshold_choice.lower()), None)
+            if matched_threshold:
+                return matched_threshold
+        print("Invalid threshold name.")
+        return None
+
+    def modify_threshold(self, simulator, selected_type, selected_threshold):
+        threshold_value = simulator.config[selected_type]["thresholds"][selected_threshold]
+
+        if isinstance(threshold_value, dict):
+            # Range-based threshold (min/max)
+            min_val = threshold_value.get("min")
+            max_val = threshold_value.get("max")
+            if min_val is not None:
+                new_min = input(f"Enter new minimum value for {selected_threshold} (current: {min_val}, or 'keep'): ").strip()
+                if new_min.lower() != "keep":
+                    try:
+                        simulator.config[selected_type]["thresholds"][selected_threshold]["min"] = float(new_min)
+                    except ValueError:
+                        print("Invalid input. Please enter a number or 'keep'.")
+            if max_val is not None:
+                new_max = input(f"Enter new maximum value for {selected_threshold} (current: {max_val}, or 'keep'): ").strip()
+                if new_max.lower() != "keep":
+                    try:
+                        simulator.config[selected_type]["thresholds"][selected_threshold]["max"] = float(new_max)
+                    except ValueError:
+                        print("Invalid input. Please enter a number or 'keep'.")
+        elif isinstance(threshold_value, list):
+            # List-based threshold (allowed values)
+            print(f"Current allowed values: {threshold_value}")
+            new_values_str = input(
+                "Enter new allowed values, comma-separated (or 'keep'): ").strip()
+            if new_values_str.lower() != "keep":
+                new_values = [v.strip() for v in new_values_str.split(',')]
+                simulator.config[selected_type]["thresholds"][selected_threshold] = new_values
+        else:
+            # Single value threshold
+            new_threshold = input(f"Enter new value for {selected_threshold} (current: {threshold_value}): ").strip()
+            try:
+                simulator.config[selected_type]["thresholds"][selected_threshold] = type(threshold_value)(new_threshold)
+            except ValueError:
+                print(f"Invalid input for this threshold type. Please enter a value of type {type(threshold_value).__name__}.")
+                return False
+        print(f"Threshold '{selected_threshold}' for '{selected_type}' updated.")
+        return True
+
+    def manage_other_settings(self, simulator, selected_type):
         print(f"\nSettings for {selected_type}:")
         available_settings = list(simulator.config[selected_type].keys())
-        for j, setting_key in enumerate(available_settings):
-             print(str(j+1) + ". " + setting_key + ": " + str(simulator.config[selected_type][setting_key]))
+        while True:
+            for j, setting_key in enumerate(available_settings):
+                print(str(j + 1) + ". " + setting_key + ": " + str(simulator.config[selected_type][setting_key]))
 
-        setting_choice = input(f"Enter the number or name of the setting to modify (or 'back'): ").strip()
-        if setting_choice.lower() == "back":
-            continue#
+            setting_choice = input(f"Enter the number or name of the setting to modify (or 'back'): ").strip()
+            if setting_choice.lower() == "back":
+                return False
 
-        selected_setting = None
+            selected_setting = self.get_selected_setting(available_settings, setting_choice)
+            if not selected_setting:
+                continue
+
+            if self.modify_setting(simulator, selected_type, selected_setting):
+                return True
+
+    def get_selected_setting(self, available_settings, setting_choice):
         try:
             setting_index = int(setting_choice) - 1
             if 0 <= setting_index < len(available_settings):
-                selected_setting = available_settings[setting_index]
-            else:
-                 print("Invalid number.")#
-                 continue
+                return available_settings[setting_index]
         except ValueError:
-             matched_setting = next((skey for skey in available_settings if skey.lower() == setting_choice.lower()), None)
-             if matched_setting:
-                  selected_setting = matched_setting
-             else:
-                  print("Invalid setting name.")#
-                  continue
+            matched_setting = next(
+                (skey for skey in available_settings if skey.lower() == setting_choice.lower()), None)
+            if matched_setting:
+                return matched_setting
+        print("Invalid setting name.")
+        return None
 
+    def modify_setting(self, simulator, selected_type, selected_setting):
         current_value = simulator.config[selected_type][selected_setting]
-        new_value = input(f"Enter the new value for '{selected_setting}' (currently: '{current_value}'): ").strip()
+        new_value = input(
+            f"Enter the new value for '{selected_setting}' (currently: '{current_value}'): ").strip()
 
-        if not new_value:#
+        if not new_value:
             print("Value cannot be empty. No change made.")
-            continue
+            return False
 
-        # Simple type conversion attempt (can be improved)
         original_type = type(current_value)
         try:
             if original_type == bool:
@@ -457,20 +620,19 @@ def change_config(simulator):
                 new_value = int(new_value)
             elif original_type == float:
                 new_value = float(new_value)
-            # Add other types if needed
         except ValueError:
-             print(f"Could not convert '{new_value}' to the expected type ({original_type.__name__}). Setting as string.")
-             new_value = str(new_value) # Fallback to string
+            print(
+                f"Could not convert '{new_value}' to the expected type ({original_type.__name__}). Setting as string.")
+            new_value = str(new_value)  # Fallback to string
 
         simulator.config[selected_type][selected_setting] = new_value
-        config_changed = True
-        print(f"Setting '{selected_setting}' for '{selected_type}' updated to '{new_value}'.")#
+        print(f"Setting '{selected_setting}' for '{selected_type}' updated to '{new_value}'.")
+        return True
 
-    if config_changed:
+    def save_configuration_changes(self, simulator):
         save_conf = input("Configuration changed. Save to config.json? (y/n): ").strip().lower()
         if save_conf == 'y':
-             simulator.save_config()
-
+            simulator.save_config()
 
 def get_valid_event_types():
      """Returns a list of valid event types based on simulator methods."""
@@ -481,6 +643,39 @@ def get_valid_event_types():
          "Location_Based_Alert", "Motion_Sensor_Alert", "IR_Sensor_Alert"
      ]
 
+def manage_sensor_types(simulator):
+    """Manages sensor types: add, remove, list, get details."""
+    while True:
+        print("\n--- Manage Sensor Types ---")
+        print("1. Add Sensor Type")
+        print("2. Remove Sensor Type")
+        print("3. Get Sensor Type Details")
+        print("4. List Sensor Types")
+        print("5. Back to Main Menu")
+        choice = input("Enter your choice: ").strip()
+
+        try:
+            if choice == '1':  # Add Sensor Type
+                name = input("Enter the name of the new sensor type: ").strip()
+                fields_str = input("Enter the data fields (comma-separated): ").strip()
+                fields = [f.strip() for f in fields_str.split(',')]
+                simulator.add_sensor_type(name, fields)
+            elif choice == '2':  # Remove Sensor Type
+                name = input("Enter the name of the sensor type to remove: ").strip()
+                simulator.remove_sensor_type(name)
+            elif choice == '3':  # Get Sensor Type Details
+                name = input("Enter the name of the sensor type: ").strip()
+                details = simulator.get_sensor_type(name)
+                print("Sensor Details:", details)
+            elif choice == '4':  # List Sensor Types
+                sensor_types = simulator.list_sensor_types()
+                print("Available Sensor Types:", sensor_types)
+            elif choice == '5':
+                break  # Back to Main Menu
+            else:
+                print("Invalid choice.")
+        except ValueError as e:
+            print(f"Error: {e}")
 def main():
     """Main function to run the event simulator console interface."""
     # Ask for API URL at the start
@@ -497,7 +692,10 @@ def main():
             print(f"{i+1}. Simulate {event_type}")
 
         print("-" * 20)
-        print(str(len(valid_event_types)+1) + ". Run Automation")
+        print(f"{len(valid_event_types)+1}. Manage Sensor Types")
+        print(f"{len(valid_event_types)+2}. Run Automation")
+        print(f"{len(valid_event_types)+3}. Change Configuration Defaults")
+        print(f"{len(valid_event_types)+1}. Run Automation")
         print(f"{len(valid_event_types)+2}. Change Configuration Defaults")
         print(f"{len(valid_event_types)+3}. Change CRC API URL")
         print(f"{len(valid_event_types)+4}. Exit")
@@ -515,11 +713,13 @@ def main():
                 run_automation(simulator)
             elif choice_num == len(valid_event_types) + 2:
                  change_config(simulator)
-            elif choice_num == len(valid_event_types) + 3:
+            elif choice_num == len(valid_event_types) + 3:  # Manage Sensor Types
                 change_crc_api_url(simulator)
             elif choice_num == len(valid_event_types) + 4:
+                manage_sensor_types(simulator)
+            elif choice_num == len(valid_event_types) + 5:
                 print("Exiting simulator.")
-                break
+                return  # End the program
             else:
                 print("Invalid choice number.")
         except ValueError:
