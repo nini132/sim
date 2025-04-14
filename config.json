@@ -1,0 +1,20 @@
+{
+  "SIEM_Alert": {
+    "default_severity": "Medium"
+  },
+  "Login_Alert": {
+    "default_status": "Success"
+  },
+  "Smart_Fence_Alert": {
+    "default_status": "Breached"
+  },
+  "Location_Based_Alert": {
+    "default_user": "Unknown"
+  },
+  "Motion_Sensor_Alert": {
+    "default_status": "Detected"
+  },
+  "IR_Sensor_Alert": {
+    "default_status": "Detected"
+  }
+}
