@@ -1,6 +1,8 @@
 {
   "SIEM_Alert": {
-    "default_severity": "Medium"
+    "default_severity": "Medium",
+    "thresholds": {},
+    "aa": "a"
   },
   "Login_Alert": {
     "default_status": "Success"
@@ -16,5 +18,173 @@
   },
   "IR_Sensor_Alert": {
     "default_status": "Detected"
+  },
+  "sensor_types": {
+    "SIEM_Alert": {
+      "fields": [
+        "severity",
+        "description",
+        "affectedUser",
+        "sourceIP",
+        "destinationIP",
+        "protocol",
+        "sourcePort",
+        "destinationPort",
+        "deviceAction",
+        "targetResource"
+      ]
+    },
+    "Login_Alert": {
+      "fields": [
+        "loginStatus",
+        "username",
+        "sourceIP",
+        "userAgent",
+        "authenticationMethod",
+        "failureReason",
+        "loginTimestamp"
+      ]
+    },
+    "Smart_Fence_Alert": {
+      "fields": [
+        "fenceId",
+        "segmentId",
+        "alertType",
+        "status",
+        "detectionTimestamp",
+        "sensorData"
+      ]
+    },
+    "Location_Based_Alert": {
+      "fields": [
+        "userId",
+        "deviceId",
+        "locationDescription",
+        "latitude",
+        "longitude",
+        "trigger",
+        "speed",
+        "altitude",
+        "accuracy"
+      ]
+    },
+    "Motion_Sensor_Alert": {
+      "fields": [
+        "itemId",
+        "location",
+        "status",
+        "detectionTimestamp",
+        "sensitivityLevel"
+      ]
+    },
+    "IR_Sensor_Alert": {
+      "fields": [
+        "itemId",
+        "location",
+        "status",
+        "beamStatusTimestamp",
+        "beamStrength"
+      ]
+    }
+  },
+  "items": {},
+  "alert_sources": {
+    "SIEM_Alert": {
+      "fields": [
+        "severity",
+        "description",
+        "affectedUser",
+        "sourceIP",
+        "destinationIP",
+        "protocol",
+        "sourcePort",
+        "destinationPort",
+        "deviceAction",
+        "targetResource"
+      ],
+      "thresholds": {},
+      "settings": {
+        "default_severity": "Medium",
+        "aa": "a"
+      },
+      "items": []
+    },
+    "Login_Alert": {
+      "fields": [
+        "loginStatus",
+        "username",
+        "sourceIP",
+        "userAgent",
+        "authenticationMethod",
+        "failureReason",
+        "loginTimestamp"
+      ],
+      "thresholds": {},
+      "settings": {
+        "default_status": "Success"
+      },
+      "items": []
+    },
+    "Smart_Fence_Alert": {
+      "fields": [
+        "fenceId",
+        "segmentId",
+        "alertType",
+        "status",
+        "detectionTimestamp",
+        "sensorData"
+      ],
+      "thresholds": {},
+      "settings": {
+        "default_status": "Breached"
+      },
+      "items": []
+    },
+    "Location_Based_Alert": {
+      "fields": [
+        "userId",
+        "deviceId",
+        "locationDescription",
+        "latitude",
+        "longitude",
+        "trigger",
+        "speed",
+        "altitude",
+        "accuracy"
+      ],
+      "thresholds": {},
+      "settings": {
+        "default_user": "Unknown"
+      },
+      "items": []
+    },
+    "Motion_Sensor_Alert": {
+      "fields": [
+        "itemId",
+        "location",
+        "status",
+        "detectionTimestamp",
+        "sensitivityLevel"
+      ],
+      "thresholds": {},
+      "settings": {
+        "default_status": "Detected"
+      },
+      "items": []
+    },
+    "IR_Sensor_Alert": {
+      "fields": [
+        "itemId",
+        "location",
+        "status",
+        "beamStatusTimestamp",
+        "beamStrength"
+      ],
+      "thresholds": {},
+      "settings": {
+        "default_status": "Detected"
+      },
+      "items": []
+    }
   }
 }
