@@ -1,4 +1,4 @@
-# CRC Event Simulator
+ Event Simulator
 
 מערכת סימולציה וניהול דינמית של Alert Sources (סנסורים/התראות) ב-CLI
 
@@ -22,11 +22,11 @@ pip install -r requirements.txt
 
 ## הפעלה
 ```bash
-python "simulator (1).py"
+python "simulator.py"
 ```
 
 ## קבצים עיקריים
-- `simulator (1).py` — קוד המקור הראשי
+- `simulator.py` — קוד המקור הראשי
 - `config.json` — קובץ קונפיגורציה דינמי
 - `default_config.json` — קונפיגורציה דיפולטית (אופציונלי)
 - `test_simulator.py` — בדיקות יחידה (pytest)
@@ -50,8 +50,9 @@ requests
 ```
 
 ## תרומה
-תרגישו חופשי לפתוח Issues ו-Pull Requests!
+תרגישו חופשי לפתוח Issues ו-Pull Requests! כנראה שלא יקרה איתם כלום כי אין לי איך לוודא את האיכות של הקוד.
+שימוש בקוד הוא על אחריות המשתמש.ת אני לא אקח אחריות על כלום וכל שימוש הוא בעיה של המשתמש.ת בלבד וכו' לפי החוקים המקובלים וכו' 
+הקוד נכתב על ידי כל AI שהם די טיפשים בסך הכל. קחו זאת בחשבון
 
 ---
 
-© 2025 CRC Event Simulator Team
