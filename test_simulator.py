@@ -17,9 +17,12 @@ def test_validate_field_value_range():
         "items": []
     }
     assert sim.validate_field_value("TestAlert", "num", "5")
-    assert not sim.validate_field_value("TestAlert", "num", "0")
-    assert not sim.validate_field_value("TestAlert", "num", "11")
-    assert not sim.validate_field_value("TestAlert", "num", "abc")
+    with pytest.raises(ValueError):
+        sim.validate_field_value("TestAlert", "num", "0")
+    with pytest.raises(ValueError):
+        sim.validate_field_value("TestAlert", "num", "11")
+    with pytest.raises(ValueError):
+        sim.validate_field_value("TestAlert", "num", "abc")
 
 def test_add_item(tmp_path):
     sim = CRCSimulator(config_file=str(tmp_path / "test_config.json"))
